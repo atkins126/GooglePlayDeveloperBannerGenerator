@@ -6,6 +6,8 @@ uses
   System.Classes, System.Generics.Collections, fmx.Graphics;
 
 type
+  TGPBGProject = class;
+
   TGPBGHeaderBlock = class
   public
     procedure LoadFromStream(s: TStream);
@@ -15,23 +17,30 @@ type
   TGPBGGlobalBlock = class
   private const
     CGlobalBlockVersion = 1;
+
+  var
+    FProject: TGPBGProject;
   public
     procedure Clear;
     procedure LoadFromStream(s: TStream);
     procedure SaveToStream(s: TStream);
-    constructor Create;
+    constructor Create(ProjectOwner: TGPBGProject);
     destructor Destroy; override;
   end;
 
   TGPBGImageBlock = class
   private const
     CImageBlockVersion = 1;
+
+  var
+    FProject: TGPBGProject;
   protected
     FBitmap: TBitmap;
   public
+    property Bitmap: TBitmap read FBitmap;
     procedure LoadFromStream(s: TStream);
     procedure SaveToStream(s: TStream);
-    constructor Create;
+    constructor Create(ProjectOwner: TGPBGProject);
     destructor Destroy; override;
   end;
 
@@ -40,33 +49,52 @@ type
   TGPBGImagesListBlock = class
   private const
     CImagesListBlockVersion = 1;
+
+  var
+    FProject: TGPBGProject;
+    function GetCount: integer;
   protected
     FImages: TGPBGImageBlockList;
   public
+    property Count: integer read GetCount;
+    function GetImage(index: integer): TGPBGImageBlock;
+    function AddImageFromFile(FileName: string): integer;
+    procedure DeleteImage(index: integer);
     procedure Clear;
     procedure LoadFromStream(s: TStream);
     procedure SaveToStream(s: TStream);
-    constructor Create;
+    constructor Create(ProjectOwner: TGPBGProject);
     destructor Destroy; override;
   end;
+
+  TGPBGHasChangedEvent = procedure(Project: TGPBGProject; HasChanged: boolean)
+    of object;
 
   TGPBGProject = class
   private Const
     CGPBGFileVersion = 1;
+    function GetProjectName: string;
 
   var
+    FonHasChangedEvent: TGPBGHasChangedEvent;
     FFileName: string;
     FHasChanged: boolean;
+    procedure SetonHasChangedEvent(const Value: TGPBGHasChangedEvent);
     procedure SetHasChanged(const Value: boolean);
   protected
     FGlobal: TGPBGGlobalBlock;
     FImagesList: TGPBGImagesListBlock;
   public
     property HasChanged: boolean read FHasChanged write SetHasChanged;
+    property onHasChangedEvent: TGPBGHasChangedEvent read FonHasChangedEvent
+      write SetonHasChangedEvent;
+    property FileName: string read FFileName;
+    property ProjectName: string read GetProjectName;
+    property ImagesList: TGPBGImagesListBlock read FImagesList;
     class function Current: TGPBGProject;
-    procedure LoadFromFile(Filename: string = '');
+    procedure LoadFromFile(FileName: string = '');
     procedure LoadFromStream(s: TStream);
-    procedure SaveToFile(Filename: string = '');
+    procedure SaveToFile(FileName: string = '');
     procedure SaveToStream(s: TStream);
     procedure Clear;
     constructor Create;
@@ -93,8 +121,9 @@ end;
 
 constructor TGPBGProject.Create;
 begin
-  FGlobal := TGPBGGlobalBlock.Create;
-  FImagesList := TGPBGImagesListBlock.Create;
+  FonHasChangedEvent := nil;
+  FGlobal := TGPBGGlobalBlock.Create(self);
+  FImagesList := TGPBGImagesListBlock.Create(self);
   Clear;
 end;
 
@@ -112,26 +141,32 @@ begin
   inherited;
 end;
 
-procedure TGPBGProject.LoadFromFile(Filename: string);
+function TGPBGProject.GetProjectName: string;
+begin
+  result := tpath.GetFileNameWithoutExtension(TGPBGProject.Current.FileName);
+  if result.IsEmpty then
+    result := 'Project With No Name';
+end;
+
+procedure TGPBGProject.LoadFromFile(FileName: string);
 var
   F: TFileStream;
 begin
-  if (Filename.isempty) then
+  if (FileName.IsEmpty) then
   begin
-    if (FFileName.isempty) then
+    if (FFileName.IsEmpty) then
       raise exception.Create
         ('Unknow project file name. Can''t load the project !');
   end
-  else if not tfile.Exists(Filename) then
-    raise exception.Create('File ' + Filename + ' doesn''t exist !')
-  else
-    FFileName := Filename;
+  else if not tfile.Exists(FileName) then
+    raise exception.Create('File ' + FileName + ' doesn''t exist !');
 
   Clear;
-  F := TFileStream.Create(FFileName, fmcreate);
+  F := TFileStream.Create(FileName, fmOpenRead);
   try
     LoadFromStream(F);
-    FHasChanged := false;
+    FFileName := FileName;
+    HasChanged := false;
   finally
     F.free;
   end;
@@ -164,26 +199,26 @@ begin
   FGlobal.LoadFromStream(s);
   FImagesList.LoadFromStream(s);
 
-  FHasChanged := false;
+  HasChanged := false;
 end;
 
-procedure TGPBGProject.SaveToFile(Filename: string);
+procedure TGPBGProject.SaveToFile(FileName: string);
 var
   F: TFileStream;
 begin
-  if (Filename.isempty) then
+  if (FileName.IsEmpty) then
   begin
-    if (FFileName.isempty) then
+    if (FFileName.IsEmpty) then
       raise exception.Create
         ('Unknow project file name. Can''t save the project !');
   end
   else
-    FFileName := Filename;
+    FFileName := FileName;
 
   F := TFileStream.Create(FFileName, fmcreate);
   try
     SaveToStream(F);
-    FHasChanged := false;
+    HasChanged := false;
   finally
     F.free;
   end;
@@ -210,12 +245,19 @@ begin
   FGlobal.SaveToStream(s);
   FImagesList.SaveToStream(s);
 
-  FHasChanged := false;
+  HasChanged := false;
 end;
 
 procedure TGPBGProject.SetHasChanged(const Value: boolean);
 begin
   FHasChanged := Value;
+  if assigned(FonHasChangedEvent) then
+    FonHasChangedEvent(self, FHasChanged);
+end;
+
+procedure TGPBGProject.SetonHasChangedEvent(const Value: TGPBGHasChangedEvent);
+begin
+  FonHasChangedEvent := Value;
 end;
 
 { TGPBGHeaderBlock }
@@ -252,11 +294,12 @@ end;
 
 procedure TGPBGGlobalBlock.Clear;
 begin
-  TGPBGProject.Current.HasChanged := true;
+  FProject.HasChanged := true;
 end;
 
-constructor TGPBGGlobalBlock.Create;
+constructor TGPBGGlobalBlock.Create(ProjectOwner: TGPBGProject);
 begin
+  FProject := ProjectOwner;
 end;
 
 destructor TGPBGGlobalBlock.Destroy;
@@ -289,15 +332,37 @@ end;
 
 { TGPBGImagesListBlock }
 
+function TGPBGImagesListBlock.AddImageFromFile(FileName: string): integer;
+var
+  img: TGPBGImageBlock;
+begin
+  result := -1;
+  if not tfile.Exists(FileName) then
+    raise exception.Create('File ' + FileName + ' doesn''t exist.');
+  img := TGPBGImageBlock.Create(FProject);
+  img.Bitmap.LoadFromFile(FileName);
+  result := FImages.Add(img);
+  FProject.HasChanged := true;
+end;
+
 procedure TGPBGImagesListBlock.Clear;
 begin
   FImages.Clear;
-  TGPBGProject.Current.HasChanged := true;
+  FProject.HasChanged := true;
 end;
 
-constructor TGPBGImagesListBlock.Create;
+constructor TGPBGImagesListBlock.Create(ProjectOwner: TGPBGProject);
 begin
+  FProject := ProjectOwner;
   FImages := TGPBGImageBlockList.Create;
+end;
+
+procedure TGPBGImagesListBlock.DeleteImage(index: integer);
+begin
+  if (index < 0) or (index >= FImages.Count) then
+    exit;
+  FImages.Delete(index);
+  FProject.HasChanged := true;
 end;
 
 destructor TGPBGImagesListBlock.Destroy;
@@ -306,11 +371,24 @@ begin
   inherited;
 end;
 
+function TGPBGImagesListBlock.GetCount: integer;
+begin
+  result := FImages.Count;
+end;
+
+function TGPBGImagesListBlock.GetImage(index: integer): TGPBGImageBlock;
+begin
+  if (index < 0) or (index >= FImages.Count) then
+    result := nil
+  else
+    result := FImages[index];
+end;
+
 procedure TGPBGImagesListBlock.LoadFromStream(s: TStream);
 var
   Version: byte;
   Nbimages: Word;
-  Img: TGPBGImageBlock;
+  img: TGPBGImageBlock;
 begin
   if (s.Read(Version, sizeof(Version)) <> sizeof(Version)) then
     raise exception.Create('Corrupted data !');
@@ -326,9 +404,9 @@ begin
 
   for var i := 0 to Nbimages - 1 do
   begin
-    Img := TGPBGImageBlock.Create;
-    Img.LoadFromStream(s);
-    FImages.Add(Img);
+    img := TGPBGImageBlock.Create(FProject);
+    img.LoadFromStream(s);
+    FImages.Add(img);
   end;
 end;
 
@@ -349,8 +427,9 @@ end;
 
 { TGPBGImageBlock }
 
-constructor TGPBGImageBlock.Create;
+constructor TGPBGImageBlock.Create(ProjectOwner: TGPBGProject);
 begin
+  FProject := ProjectOwner;
   FBitmap := TBitmap.Create;
 end;
 

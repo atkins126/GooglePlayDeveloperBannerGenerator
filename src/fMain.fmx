@@ -8,31 +8,35 @@ object frmMain: TfrmMain
   FormFactor.Height = 480
   FormFactor.Devices = [Desktop]
   OnCreate = FormCreate
+  OnCloseQuery = FormCloseQuery
+  OnKeyDown = FormKeyDown
   DesignerMasterStyle = 0
   object TabControl1: TTabControl
     Align = Client
     Size.Width = 640.000000000000000000
-    Size.Height = 480.000000000000000000
+    Size.Height = 463.000000000000000000
     Size.PlatformDefault = False
-    TabIndex = 0
+    TabIndex = 1
     TabOrder = 0
     TabPosition = None
     Sizes = (
       640s
-      480s
+      463s
       640s
-      480s)
+      463s)
     object tiOpenCreate: TTabItem
       CustomIcon = <
         item
         end>
-      IsSelected = True
+      IsSelected = False
       Size.Width = 8.000000000000000000
       Size.Height = 8.000000000000000000
       Size.PlatformDefault = False
       StyleLookup = ''
       TabOrder = 0
       Text = 'tiOpenCreate'
+      ExplicitSize.cx = 8.000000000000000000
+      ExplicitSize.cy = 8.000000000000000000
       object Layout1: TLayout
         Align = Center
         Size.Width = 274.000000000000000000
@@ -75,13 +79,15 @@ object frmMain: TfrmMain
       CustomIcon = <
         item
         end>
-      IsSelected = False
+      IsSelected = True
       Size.Width = 8.000000000000000000
       Size.Height = 8.000000000000000000
       Size.PlatformDefault = False
       StyleLookup = ''
       TabOrder = 0
       Text = 'tiProject'
+      ExplicitSize.cx = 8.000000000000000000
+      ExplicitSize.cy = 8.000000000000000000
       object ToolBar1: TToolBar
         Size.Width = 640.000000000000000000
         Size.Height = 60.000000000000000000
@@ -100,6 +106,7 @@ object frmMain: TfrmMain
           Size.PlatformDefault = False
           TabOrder = 0
           Text = 'Add Image'
+          OnClick = btnAddImageClick
         end
         object btnDeleteImage: TButton
           Align = Left
@@ -114,6 +121,7 @@ object frmMain: TfrmMain
           Size.PlatformDefault = False
           TabOrder = 1
           Text = 'Delete Image'
+          OnClick = btnDeleteImageClick
         end
         object btnClose: TButton
           Align = MostRight
@@ -126,8 +134,9 @@ object frmMain: TfrmMain
           Size.Width = 80.000000000000000000
           Size.Height = 50.000000000000000000
           Size.PlatformDefault = False
-          TabOrder = 2
+          TabOrder = 4
           Text = 'Close'
+          OnClick = btnCloseClick
         end
         object btnSave: TButton
           Align = Right
@@ -142,16 +151,32 @@ object frmMain: TfrmMain
           Size.PlatformDefault = False
           TabOrder = 3
           Text = 'Save'
+          OnClick = btnSaveClick
+        end
+        object btnExport: TButton
+          Align = Right
+          Margins.Left = 5.000000000000000000
+          Margins.Top = 5.000000000000000000
+          Margins.Right = 5.000000000000000000
+          Margins.Bottom = 5.000000000000000000
+          Position.X = 295.000000000000000000
+          Position.Y = 5.000000000000000000
+          Size.Width = 160.000000000000000000
+          Size.Height = 50.000000000000000000
+          Size.PlatformDefault = False
+          TabOrder = 2
+          Text = 'Export banner'
+          OnClick = btnExportClick
         end
       end
       object VertScrollBox1: TVertScrollBox
         Align = Client
         Size.Width = 640.000000000000000000
-        Size.Height = 420.000000000000000000
+        Size.Height = 403.000000000000000000
         Size.PlatformDefault = False
         TabOrder = 1
         Viewport.Width = 640.000000000000000000
-        Viewport.Height = 420.000000000000000000
+        Viewport.Height = 403.000000000000000000
         object ImagesLayout: TFlowLayout
           Align = Top
           Size.Width = 640.000000000000000000
@@ -173,5 +198,39 @@ object frmMain: TfrmMain
     Title = 'Open project'
     Left = 48
     Top = 408
+  end
+  object SaveProjectDialog: TSaveDialog
+    DefaultExt = 'gpbg'
+    Filter = 'Projects|*.gpbg'
+    Options = [ofOverwritePrompt, ofHideReadOnly, ofPathMustExist, ofEnableSizing]
+    Title = 'Save project'
+    Left = 176
+    Top = 408
+  end
+  object AddImageDialog: TOpenDialog
+    Filter = 
+      'Images JPEG|*.jpg;*.jpeg|Images PNG|*.png|Toutes les images|*.jp' +
+      'g;*.jpeg;*.png'
+    FilterIndex = 3
+    Options = [ofPathMustExist, ofFileMustExist, ofEnableSizing]
+    Title = 'Choose an image'
+    Left = 520
+    Top = 416
+  end
+  object SaveBannerDialog: TSaveDialog
+    DefaultExt = 'png'
+    Filter = 'Image PNG|*.png'
+    Options = [ofOverwritePrompt, ofHideReadOnly, ofPathMustExist, ofEnableSizing]
+    Left = 400
+    Top = 408
+  end
+  object Label1: TLabel
+    Align = Bottom
+    Position.Y = 463.000000000000000000
+    Size.Width = 640.000000000000000000
+    Size.Height = 17.000000000000000000
+    Size.PlatformDefault = False
+    Text = 'Label1'
+    TabOrder = 5
   end
 end
